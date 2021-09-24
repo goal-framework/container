@@ -1,0 +1,17 @@
+github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/goal-framework/contracts v0.0.0-20210924034251-f27cceab8f97 h1:r9RyVkop+bMniY/gM9eb1Suttx1V1znlqkmsdz4nv8w=
+github.com/goal-framework/contracts v0.0.0-20210924034251-f27cceab8f97/go.mod h1:eFUWn0X6ynQ5Vz95QQ1i19lFT0HSIBoMcIBKizGYEkw=
+github.com/goal-framework/utils v0.0.0-20210924072616-f4d78365eed2 h1:YiKJm6KUHU3bbT/2gA3Q9+dQYwCSGW0bdcdOixzbU6E=
+github.com/goal-framework/utils v0.0.0-20210924072616-f4d78365eed2/go.mod h1:OYGZ6ZZL7ZHPydx3OPGWfj/k12PJS3EH/sjBlmuGtLM=
+github.com/goal-framework/utils v0.0.0-20210924082353-39f55bd062ca h1:VcMRjt6sPXoLF5z1F6HMv9CJq/qGcJ1AQAGyBZV9kSI=
+github.com/goal-framework/utils v0.0.0-20210924082353-39f55bd062ca/go.mod h1:pSZGfajCeATx6p+j/nyRXfwUWCSkx7vzrsNtKf3IZGE=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
+github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c h1:dUUwHk2QECo/6vqA44rthZ8ie2QXMNeKRTHCNY2nXvo=
+gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
