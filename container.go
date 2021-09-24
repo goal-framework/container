@@ -41,7 +41,7 @@ func (this *Container) ProvideSingleton(provider interface{}) {
 	})
 }
 
-func New() *Container {
+func New() contracts.Container {
 	container := &Container{}
 	container.Flush()
 	return container
