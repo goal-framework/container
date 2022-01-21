@@ -17,7 +17,7 @@ type Container struct {
 	binds      map[string]contracts.MagicalFunc
 	singletons map[string]contracts.MagicalFunc
 	instances  sync.Map
-	aliases    map[string]string
+	aliases    sync.Map
 }
 
 func newInstanceProvider(provider interface{}) contracts.MagicalFunc {
@@ -64,18 +64,21 @@ func (this *Container) HasBound(key string) bool {
 }
 
 func (this *Container) Alias(key string, alias string) {
-	this.aliases[alias] = key
+	this.aliases.Store(alias, key)
 }
 
 func (this *Container) GetKey(alias string) string {
-	return utils.StringOr(this.aliases[alias], alias)
+	if value, existsAlias := this.aliases.Load(alias); existsAlias {
+		return value.(string)
+	}
+	return alias
 }
 
 func (this *Container) Flush() {
 	this.instances = sync.Map{}
 	this.singletons = make(map[string]contracts.MagicalFunc, 0)
 	this.binds = make(map[string]contracts.MagicalFunc, 0)
-	this.aliases = make(map[string]string, 0)
+	this.aliases = sync.Map{}
 }
 
 func (this *Container) Get(key string, args ...interface{}) interface{} {
