@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goal-web/contracts"
+	"github.com/goal-web/supports/exceptions"
 	"github.com/goal-web/supports/utils"
 	"reflect"
 	"sync"
@@ -14,21 +15,51 @@ var (
 )
 
 type Container struct {
-	binds      map[string]contracts.MagicalFunc
-	singletons map[string]contracts.MagicalFunc
-	instances  sync.Map
-	aliases    sync.Map
+	binds        map[string]contracts.MagicalFunc
+	singletons   map[string]contracts.MagicalFunc
+	instances    sync.Map
+	aliases      sync.Map
+	argProviders []func(key string, p reflect.Type, arguments ArgumentsTypeMap) interface{}
 }
 
 func newInstanceProvider(provider interface{}) contracts.MagicalFunc {
-	if magicalFn := NewMagicalFunc(provider); magicalFn.NumOut() == 1 {
-		return magicalFn
+	magicalFn := NewMagicalFunc(provider)
+	if magicalFn.NumOut() != 1 {
+		exceptions.Throw(CallerTypeError)
 	}
-	panic(CallerTypeError)
+	return magicalFn
 }
 
 func New() contracts.Container {
 	container := &Container{}
+	container.argProviders = []func(key string, p reflect.Type, arguments ArgumentsTypeMap) interface{}{
+		func(key string, _ reflect.Type, arguments ArgumentsTypeMap) interface{} {
+			return arguments.Pull(key) // 外部参数里面类型完全相等的参数
+		},
+		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) interface{} {
+			return arguments.FindConvertibleArg(key, argType) // 外部参数可转换的参数
+		},
+		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) interface{} {
+			return container.GetByArguments(key, arguments) // 从容器中获取参数
+		},
+		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) interface{} {
+			// 尝试 new 一个然后通过容器注入
+			var (
+				tempInstance interface{}
+				isPtr        = argType.Kind() == reflect.Ptr
+			)
+			if isPtr {
+				tempInstance = reflect.New(argType.Elem()).Interface()
+			} else {
+				tempInstance = reflect.New(argType).Interface()
+			}
+			container.DIByArguments(tempInstance, arguments)
+			if isPtr {
+				return tempInstance
+			}
+			return reflect.ValueOf(tempInstance).Elem().Interface()
+		},
+	}
 	container.Flush()
 	return container
 }
@@ -97,42 +128,34 @@ func (this *Container) Get(key string, args ...interface{}) interface{} {
 	return nil
 }
 
-func (this *Container) Call(fn interface{}, args ...interface{}) []interface{} {
-	magicalFn, isMagicalFunc := fn.(contracts.MagicalFunc)
-	if !isMagicalFunc {
-		magicalFn = NewMagicalFunc(fn)
+func (this *Container) GetByArguments(key string, arguments ArgumentsTypeMap) interface{} {
+	key = this.GetKey(key)
+	if tempInstance, existsInstance := this.instances.Load(key); existsInstance {
+		return tempInstance
 	}
-	argsTypeMap := NewArgumentsTypeMap(append(args, this))
+	if singletonProvider, existsProvider := this.singletons[key]; existsProvider {
+		value := this.StaticCallByArguments(singletonProvider, arguments)[0]
+		this.instances.Store(key, value)
+		return value
+	}
+	if instanceProvider, existsProvider := this.binds[key]; existsProvider {
+		return this.StaticCallByArguments(instanceProvider, arguments)[0]
+	}
+	return nil
+}
+
+// StaticCall 静态调用，直接传静态化的方法
+func (this *Container) StaticCall(magicalFn contracts.MagicalFunc, args ...interface{}) []interface{} {
+	return this.StaticCallByArguments(magicalFn, NewArgumentsTypeMap(append(args, this)))
+}
+
+// StaticCallByArguments 静态调用，直接传静态化的方法和处理好的参数
+func (this *Container) StaticCallByArguments(magicalFn contracts.MagicalFunc, arguments ArgumentsTypeMap) []interface{} {
 	fnArgs := make([]reflect.Value, 0)
 
 	for _, arg := range magicalFn.Arguments() {
-		var (
-			key      = utils.GetTypeKey(arg)
-			argValue reflect.Value
-		)
-
-		tempInstance := argsTypeMap.Pull(key)
-
-		if tempInstance == nil {
-			tempInstance = this.Get(key, args...)
-		}
-
-		if tempInstance == nil {
-			// 1. 尝试从外部参数注入
-			tempInstance = argsTypeMap.FindConvertibleArg(arg)
-			if tempInstance == nil {
-				// 2. 尝试 new 一个自己然后 di 作为参数
-				tempInstance = reflect.New(arg).Interface()
-				this.DI(tempInstance, args...)
-				argValue = reflect.ValueOf(tempInstance).Elem()
-			} else {
-				argValue = reflect.ValueOf(tempInstance).Convert(arg)
-			}
-		} else {
-			argValue = reflect.ValueOf(tempInstance)
-		}
-
-		fnArgs = append(fnArgs, argValue)
+		key := utils.GetTypeKey(arg)
+		fnArgs = append(fnArgs, reflect.ValueOf(this.findArg(key, arg, arguments)))
 	}
 
 	results := make([]interface{}, 0)
@@ -144,32 +167,50 @@ func (this *Container) Call(fn interface{}, args ...interface{}) []interface{} {
 	return results
 }
 
-func (this *Container) DI(object interface{}, args ...interface{}) {
-	fmt.Println(utils.GetTypeKey(reflect.TypeOf(object)))
-	var (
-		objectValue = reflect.ValueOf(object)
-	)
+func (this *Container) Call(fn interface{}, args ...interface{}) []interface{} {
+	if magicalFn, isMagicalFunc := fn.(contracts.MagicalFunc); isMagicalFunc {
+		return this.StaticCall(magicalFn, args...)
+	}
+	return this.StaticCall(NewMagicalFunc(fn), args...)
+}
+
+func (this *Container) findArg(key string, p reflect.Type, arguments ArgumentsTypeMap) (result interface{}) {
+	for _, provider := range this.argProviders {
+		if value := provider(key, p, arguments); value != nil {
+			return value
+		}
+	}
+	return
+}
+
+func (this *Container) DIByArguments(object interface{}, arguments ArgumentsTypeMap) {
+	if component, ok := object.(contracts.Component); ok {
+		component.Construct(this)
+		return
+	}
+
+	objectValue := reflect.ValueOf(object)
 
 	switch objectValue.Kind() {
 	case reflect.Ptr:
 		if objectValue.Elem().Kind() != reflect.Struct {
-			panic(errors.New("参数必须是结构体指针!"))
+			exceptions.Throw(errors.New("参数必须是结构体指针"))
 		}
 		objectValue = objectValue.Elem()
 	default:
-		panic(errors.New("参数必须是结构体指针!"))
+		exceptions.Throw(errors.New("参数必须是结构体指针"))
 	}
 
+	valueType := objectValue.Type()
+
 	var (
-		valueType   = objectValue.Type()
-		fieldNum    = objectValue.NumField()
-		argsTypeMap = NewArgumentsTypeMap(append(args, this))
-		tempValue   = reflect.New(valueType).Elem()
-		isComponent = valueType.Implements(ComponentType)
+		fieldNum  = objectValue.NumField()
+		tempValue = reflect.New(valueType).Elem()
 	)
 
 	tempValue.Set(objectValue)
 
+	// 遍历所有字段
 	for i := 0; i < fieldNum; i++ {
 		var (
 			field          = valueType.Field(i)
@@ -180,26 +221,24 @@ func (this *Container) DI(object interface{}, args ...interface{}) {
 		)
 
 		if di, existsDiTag := fieldTags["di"]; existsDiTag { // 配置了 fieldTags tag，优先用 tag 的配置
-			fieldInterface = utils.NotNil(argsTypeMap.Pull(key), func() interface{} {
-				if len(di) > 0 { // 如果指定某 di 值，优先取这个值
-					return this.Get(di[0])
-				}
-				return nil
-			}, func() interface{} {
-				return this.Get(utils.StringOr(key))
-			})
-		} else if isComponent {
-			fieldInterface = utils.NotNil(argsTypeMap.Pull(key), func() interface{} {
-				return this.Get(key)
-			})
+			if len(di) > 0 { // 如果指定某 di 值，优先取这个值
+				fieldInterface = this.Get(di[0])
+			}
+			if fieldInterface == nil {
+				fieldInterface = this.findArg(key, field.Type, arguments)
+			}
 		}
 
 		if fieldInterface != nil {
 			fieldType := reflect.TypeOf(fieldInterface)
-			if fieldType.ConvertibleTo(field.Type) {
-				fieldValue.Set(reflect.ValueOf(fieldInterface))
+			if fieldType.ConvertibleTo(field.Type) { // 可转换的类型
+				value := reflect.ValueOf(fieldInterface)
+				if key != utils.GetTypeKey(fieldType) { // 如果不是同一种类型，就转换一下
+					value = value.Convert(field.Type)
+				}
+				fieldValue.Set(value)
 			} else {
-				panic(errors.New(fmt.Sprintf("无法注入 %s ，因为类型不一致，目标类型为 %s，而将注入的类型为 %s", field.Name, field.Type.String(), fieldType.String())))
+				exceptions.Throw(errors.New(fmt.Sprintf("无法注入 %s ，因为类型不一致，目标类型为 %s，而将注入的类型为 %s", field.Name, field.Type.String(), fieldType.String())))
 			}
 		}
 	}
@@ -207,4 +246,8 @@ func (this *Container) DI(object interface{}, args ...interface{}) {
 	objectValue.Set(tempValue)
 
 	return
+}
+
+func (this *Container) DI(object interface{}, args ...interface{}) {
+	this.DIByArguments(object, NewArgumentsTypeMap(append(args, this)))
 }
