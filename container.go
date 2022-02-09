@@ -49,15 +49,33 @@ func New() contracts.Container {
 				isPtr        = argType.Kind() == reflect.Ptr
 			)
 			if isPtr {
-				tempInstance = reflect.New(argType.Elem()).Interface()
+				argType = argType.Elem()
+
 			} else {
+				value := reflect.New(argType)
+				if argType.Kind() != reflect.Struct {
+					tempInstance = value.Elem().Interface()
+					return tempInstance
+				}
+				tempInstance = value.Interface()
+			}
+
+			if argType.Kind() == reflect.Struct {
 				tempInstance = reflect.New(argType).Interface()
+				container.DIByArguments(tempInstance, arguments)
+				if isPtr {
+					return tempInstance
+				}
+				return reflect.ValueOf(tempInstance).Elem().Interface()
 			}
-			container.DIByArguments(tempInstance, arguments)
-			if isPtr {
-				return tempInstance
+
+			switch argType.Kind() {
+			case reflect.Struct:
+				return reflect.New(argType).Interface()
+			default:
+				return reflect.New(argType).Elem().Interface()
 			}
-			return reflect.ValueOf(tempInstance).Elem().Interface()
+
 		},
 	}
 	container.Flush()
@@ -155,7 +173,11 @@ func (this *Container) StaticCallByArguments(magicalFn contracts.MagicalFunc, ar
 
 	for _, arg := range magicalFn.Arguments() {
 		key := utils.GetTypeKey(arg)
-		fnArgs = append(fnArgs, reflect.ValueOf(this.findArg(key, arg, arguments)))
+		if value := this.findArg(key, arg, arguments); value != nil {
+			fnArgs = append(fnArgs, reflect.ValueOf(value))
+		} else {
+			fnArgs = append(fnArgs, reflect.New(arg).Elem())
+		}
 	}
 
 	results := make([]interface{}, 0)

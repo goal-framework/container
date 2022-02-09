@@ -181,3 +181,57 @@ func TestCallAndDIContainer(t *testing.T) {
 		fmt.Println(container2)
 	}))
 }
+
+func TestDIDontDefineValue(t *testing.T) {
+	app := container.New()
+
+	app.Call(func(name string, model contracts.Model) {
+		fmt.Println(name, model)
+	})
+}
+
+/**
+goos: darwin
+goarch: amd64
+pkg: github.com/goal-web/container/tests
+cpu: Intel(R) Core(TM) i7-7660U CPU @ 2.50GHz
+BenchmarkCall
+BenchmarkCall-4   	  854979	      1175 ns/op
+*/
+func BenchmarkCall(b *testing.B) {
+	app := container.New()
+	app.Singleton("DemoDependent", func() DemoDependent {
+		return DemoDependent{
+			Id: "id ddd",
+		}
+	})
+
+	for i := 0; i < b.N; i++ {
+		app.Call(func(dependent DemoDependent) {
+
+		})
+	}
+}
+
+/**
+goos: darwin
+goarch: amd64
+pkg: github.com/goal-web/container/tests
+cpu: Intel(R) Core(TM) i7-7660U CPU @ 2.50GHz
+BenchmarkStaticCall
+BenchmarkStaticCall-4   	 1048639	      1074 ns/op
+*/
+func BenchmarkStaticCall(b *testing.B) {
+	app := container.New()
+	app.Singleton("DemoDependent", func() DemoDependent {
+		return DemoDependent{
+			Id: "id ddd",
+		}
+	})
+	staticFunc := container.NewMagicalFunc(func(dependent DemoDependent) {
+	})
+
+	for i := 0; i < b.N; i++ {
+		app.Call(staticFunc)
+	}
+}
