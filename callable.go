@@ -52,22 +52,22 @@ func NewMagicalFunc(fn interface{}) contracts.MagicalFunc {
 	}
 }
 
-func (this *magicalFunc) Call(in []reflect.Value) []reflect.Value {
-	return this.value.Call(in)
+func (fn *magicalFunc) Call(in []reflect.Value) []reflect.Value {
+	return fn.value.Call(in)
 }
 
-func (this *magicalFunc) Arguments() []reflect.Type {
-	return this.arguments
+func (fn *magicalFunc) Arguments() []reflect.Type {
+	return fn.arguments
 }
 
-func (this *magicalFunc) Returns() []reflect.Type {
-	return this.returns
+func (fn *magicalFunc) Returns() []reflect.Type {
+	return fn.returns
 }
 
-func (this *magicalFunc) NumOut() int {
-	return this.out
+func (fn *magicalFunc) NumOut() int {
+	return fn.out
 }
 
-func (this *magicalFunc) NumIn() int {
-	return this.in
+func (fn *magicalFunc) NumIn() int {
+	return fn.in
 }

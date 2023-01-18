@@ -16,18 +16,18 @@ func NewArgumentsTypeMap(args []interface{}) ArgumentsTypeMap {
 	return argsTypeMap
 }
 
-func (this ArgumentsTypeMap) Pull(key string) (arg interface{}) {
-	if item, exits := this[key]; exits && len(item) >= 1 {
+func (args ArgumentsTypeMap) Pull(key string) (arg interface{}) {
+	if item, exits := args[key]; exits && len(item) >= 1 {
 		arg = item[0]
-		this[key] = item[1:]
+		args[key] = item[1:]
 		return
 	}
 	return nil
 }
 
 // FindConvertibleArg 找到可转换的参数
-func (this ArgumentsTypeMap) FindConvertibleArg(targetKey string, targetType reflect.Type) interface{} {
-	for key, args := range this {
+func (args ArgumentsTypeMap) FindConvertibleArg(targetKey string, targetType reflect.Type) interface{} {
+	for key, args := range args {
 		for _, arg := range args {
 			if reflect.TypeOf(arg).ConvertibleTo(targetType) {
 				if key != targetKey {
