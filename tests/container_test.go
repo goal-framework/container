@@ -155,8 +155,8 @@ type DemoController struct {
 	Dep DemoDependent `di:""` // 表示需要注入
 }
 
-func (this *DemoController) PrintDep() {
-	fmt.Println(this.Dep)
+func (demo *DemoController) PrintDep() {
+	fmt.Println(demo.Dep)
 }
 
 func TestControllerCall(t *testing.T) {
