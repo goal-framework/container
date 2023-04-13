@@ -18,7 +18,7 @@ type magicalFunc struct {
 	returns   []reflect.Type
 }
 
-func NewMagicalFunc(fn interface{}) contracts.MagicalFunc {
+func NewMagicalFunc(fn any) contracts.MagicalFunc {
 	var (
 		argValue = reflect.ValueOf(fn)
 		argType  = reflect.TypeOf(fn)

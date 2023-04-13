@@ -19,12 +19,12 @@ type DemoComponent struct {
 }
 
 func TestArgumentsTypeMap(t *testing.T) {
-	args := container.NewArgumentsTypeMap([]interface{}{"啦啦啦", DemoParam{Id: "111"}})
+	args := container.NewArgumentsTypeMap([]any{"啦啦啦", DemoParam{Id: "111"}})
 	str := args.Pull("string")
 	fmt.Println(str)
 	assert.True(t, str == "啦啦啦")
 
-	args = container.NewArgumentsTypeMap([]interface{}{})
+	args = container.NewArgumentsTypeMap([]any{})
 	assert.True(t, args.Pull("string") == nil)
 }
 

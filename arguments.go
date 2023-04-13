@@ -5,9 +5,9 @@ import (
 	"reflect"
 )
 
-type ArgumentsTypeMap map[string][]interface{}
+type ArgumentsTypeMap map[string][]any
 
-func NewArgumentsTypeMap(args []interface{}) ArgumentsTypeMap {
+func NewArgumentsTypeMap(args []any) ArgumentsTypeMap {
 	argsTypeMap := ArgumentsTypeMap{}
 	for _, arg := range args {
 		argTypeKey := utils.GetTypeKey(reflect.TypeOf(arg))
@@ -16,7 +16,7 @@ func NewArgumentsTypeMap(args []interface{}) ArgumentsTypeMap {
 	return argsTypeMap
 }
 
-func (args ArgumentsTypeMap) Pull(key string) (arg interface{}) {
+func (args ArgumentsTypeMap) Pull(key string) (arg any) {
 	if item, exits := args[key]; exits && len(item) >= 1 {
 		arg = item[0]
 		args[key] = item[1:]
@@ -26,7 +26,7 @@ func (args ArgumentsTypeMap) Pull(key string) (arg interface{}) {
 }
 
 // FindConvertibleArg 找到可转换的参数
-func (args ArgumentsTypeMap) FindConvertibleArg(targetKey string, targetType reflect.Type) interface{} {
+func (args ArgumentsTypeMap) FindConvertibleArg(targetKey string, targetType reflect.Type) any {
 	for key, args := range args {
 		for _, arg := range args {
 			if reflect.TypeOf(arg).ConvertibleTo(targetType) {

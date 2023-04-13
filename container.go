@@ -19,10 +19,10 @@ type Container struct {
 	singletons   map[string]contracts.MagicalFunc
 	instances    sync.Map
 	aliases      sync.Map
-	argProviders []func(key string, p reflect.Type, arguments ArgumentsTypeMap) interface{}
+	argProviders []func(key string, p reflect.Type, arguments ArgumentsTypeMap) any
 }
 
-func newInstanceProvider(provider interface{}) contracts.MagicalFunc {
+func newInstanceProvider(provider any) contracts.MagicalFunc {
 	magicalFn := NewMagicalFunc(provider)
 	if magicalFn.NumOut() != 1 {
 		exceptions.Throw(CallerTypeError)
@@ -32,20 +32,20 @@ func newInstanceProvider(provider interface{}) contracts.MagicalFunc {
 
 func New() contracts.Container {
 	container := &Container{}
-	container.argProviders = []func(key string, p reflect.Type, arguments ArgumentsTypeMap) interface{}{
-		func(key string, _ reflect.Type, arguments ArgumentsTypeMap) interface{} {
+	container.argProviders = []func(key string, p reflect.Type, arguments ArgumentsTypeMap) any{
+		func(key string, _ reflect.Type, arguments ArgumentsTypeMap) any {
 			return arguments.Pull(key) // 外部参数里面类型完全相等的参数
 		},
-		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) interface{} {
+		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) any {
 			return arguments.FindConvertibleArg(key, argType) // 外部参数可转换的参数
 		},
-		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) interface{} {
+		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) any {
 			return container.GetByArguments(key, arguments) // 从容器中获取参数
 		},
-		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) interface{} {
+		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) any {
 			// 尝试 new 一个然后通过容器注入
 			var (
-				tempInstance interface{}
+				tempInstance any
 				isPtr        = argType.Kind() == reflect.Ptr
 			)
 			if isPtr {
@@ -64,17 +64,17 @@ func New() contracts.Container {
 	return container
 }
 
-func (container *Container) Bind(key string, provider interface{}) {
+func (container *Container) Bind(key string, provider any) {
 	magicalFn := newInstanceProvider(provider)
 	container.binds[container.GetKey(key)] = magicalFn
 	container.Alias(key, utils.GetTypeKey(magicalFn.Returns()[0]))
 }
 
-func (container *Container) Instance(key string, instance interface{}) {
+func (container *Container) Instance(key string, instance any) {
 	container.instances.Store(container.GetKey(key), instance)
 }
 
-func (container *Container) Singleton(key string, provider interface{}) {
+func (container *Container) Singleton(key string, provider any) {
 	magicalFn := newInstanceProvider(provider)
 	container.singletons[container.GetKey(key)] = magicalFn
 	container.Alias(key, utils.GetTypeKey(magicalFn.Returns()[0]))
@@ -112,7 +112,7 @@ func (container *Container) Flush() {
 	container.aliases = sync.Map{}
 }
 
-func (container *Container) Get(key string, args ...interface{}) interface{} {
+func (container *Container) Get(key string, args ...any) any {
 	key = container.GetKey(key)
 	if tempInstance, existsInstance := container.instances.Load(key); existsInstance {
 		return tempInstance
@@ -128,7 +128,7 @@ func (container *Container) Get(key string, args ...interface{}) interface{} {
 	return nil
 }
 
-func (container *Container) GetByArguments(key string, arguments ArgumentsTypeMap) interface{} {
+func (container *Container) GetByArguments(key string, arguments ArgumentsTypeMap) any {
 	key = container.GetKey(key)
 	if tempInstance, existsInstance := container.instances.Load(key); existsInstance {
 		return tempInstance
@@ -145,12 +145,12 @@ func (container *Container) GetByArguments(key string, arguments ArgumentsTypeMa
 }
 
 // StaticCall 静态调用，直接传静态化的方法
-func (container *Container) StaticCall(magicalFn contracts.MagicalFunc, args ...interface{}) []interface{} {
+func (container *Container) StaticCall(magicalFn contracts.MagicalFunc, args ...any) []any {
 	return container.StaticCallByArguments(magicalFn, NewArgumentsTypeMap(append(args, container)))
 }
 
 // StaticCallByArguments 静态调用，直接传静态化的方法和处理好的参数
-func (container *Container) StaticCallByArguments(magicalFn contracts.MagicalFunc, arguments ArgumentsTypeMap) []interface{} {
+func (container *Container) StaticCallByArguments(magicalFn contracts.MagicalFunc, arguments ArgumentsTypeMap) []any {
 	fnArgs := make([]reflect.Value, 0)
 
 	for _, arg := range magicalFn.Arguments() {
@@ -158,7 +158,7 @@ func (container *Container) StaticCallByArguments(magicalFn contracts.MagicalFun
 		fnArgs = append(fnArgs, reflect.ValueOf(container.findArg(key, arg, arguments)))
 	}
 
-	results := make([]interface{}, 0)
+	results := make([]any, 0)
 
 	for _, result := range magicalFn.Call(fnArgs) {
 		results = append(results, result.Interface())
@@ -167,14 +167,14 @@ func (container *Container) StaticCallByArguments(magicalFn contracts.MagicalFun
 	return results
 }
 
-func (container *Container) Call(fn interface{}, args ...interface{}) []interface{} {
+func (container *Container) Call(fn any, args ...any) []any {
 	if magicalFn, isMagicalFunc := fn.(contracts.MagicalFunc); isMagicalFunc {
 		return container.StaticCall(magicalFn, args...)
 	}
 	return container.StaticCall(NewMagicalFunc(fn), args...)
 }
 
-func (container *Container) findArg(key string, p reflect.Type, arguments ArgumentsTypeMap) (result interface{}) {
+func (container *Container) findArg(key string, p reflect.Type, arguments ArgumentsTypeMap) (result any) {
 	for _, provider := range container.argProviders {
 		if value := provider(key, p, arguments); value != nil {
 			return value
@@ -183,7 +183,7 @@ func (container *Container) findArg(key string, p reflect.Type, arguments Argume
 	return
 }
 
-func (container *Container) DIByArguments(object interface{}, arguments ArgumentsTypeMap) {
+func (container *Container) DIByArguments(object any, arguments ArgumentsTypeMap) {
 	if component, ok := object.(contracts.Component); ok {
 		component.Construct(container)
 		return
@@ -217,7 +217,7 @@ func (container *Container) DIByArguments(object interface{}, arguments Argument
 			key            = utils.GetTypeKey(field.Type)
 			fieldTags      = utils.ParseStructTag(field.Tag)
 			fieldValue     = tempValue.Field(i)
-			fieldInterface interface{}
+			fieldInterface any
 		)
 
 		if di, existsDiTag := fieldTags["di"]; existsDiTag { // 配置了 fieldTags tag，优先用 tag 的配置
@@ -248,6 +248,6 @@ func (container *Container) DIByArguments(object interface{}, arguments Argument
 	return
 }
 
-func (container *Container) DI(object interface{}, args ...interface{}) {
+func (container *Container) DI(object any, args ...any) {
 	container.DIByArguments(object, NewArgumentsTypeMap(append(args, container)))
 }
