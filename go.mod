@@ -3,8 +3,6 @@ module github.com/goal-web/container
 go 1.20
 
 require (
-	github.com/goal-web/contracts v0.3.0
-	github.com/goal-web/supports v0.3.0
 	github.com/stretchr/testify v1.7.0
 )
 

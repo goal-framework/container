@@ -238,14 +238,12 @@ func (container *Container) DIByArguments(object any, arguments ArgumentsTypeMap
 				}
 				fieldValue.Set(value)
 			} else {
-				exceptions.Throw(errors.New(fmt.Sprintf("无法注入 %s ，因为类型不一致，目标类型为 %s，而将注入的类型为 %s", field.Name, field.Type.String(), fieldType.String())))
+				exceptions.Throw(fmt.Errorf("无法注入 %s ，因为类型不一致，目标类型为 %s，而将注入的类型为 %s", field.Name, field.Type.String(), fieldType.String()))
 			}
 		}
 	}
 
 	objectValue.Set(tempValue)
-
-	return
 }
 
 func (container *Container) DI(object any, args ...any) {
