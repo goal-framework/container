@@ -1,13 +1,14 @@
 package container
 
 import (
-	"errors"
 	"github.com/goal-web/contracts"
+	"github.com/goal-web/supports/exceptions"
 	"reflect"
+	"runtime"
 )
 
 var (
-	FuncTypeError = errors.New("参数必须是一个函数")
+	FuncTypeError = exceptions.New("The argument must be a function")
 )
 
 type magicalFunc struct {
@@ -25,7 +26,10 @@ func NewMagicalFunc(fn any) contracts.MagicalFunc {
 	)
 
 	if argValue.Kind() != reflect.Func {
-		panic(FuncTypeError)
+		panic(FuncTypeException{
+			Exception: FuncTypeError,
+			Fn:        fn,
+		})
 	}
 
 	var (
@@ -70,4 +74,8 @@ func (fn *magicalFunc) NumOut() int {
 
 func (fn *magicalFunc) NumIn() int {
 	return fn.in
+}
+
+func (fn *magicalFunc) Signature() string {
+	return runtime.FuncForPC(fn.value.Pointer()).Name()
 }

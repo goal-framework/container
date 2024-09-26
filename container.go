@@ -1,7 +1,6 @@
 package container
 
 import (
-	"errors"
 	"fmt"
 	"github.com/goal-web/contracts"
 	"github.com/goal-web/supports/exceptions"
@@ -11,7 +10,8 @@ import (
 )
 
 var (
-	CallerTypeError = errors.New("参数类型必须是有一个返回值的函数")
+	CallerTypeError    = exceptions.New("The argument type must be a function with a return value")
+	StructPtrTypeError = exceptions.New("The parameter must be a pointer to a structure")
 )
 
 type Container struct {
@@ -107,8 +107,8 @@ func (container *Container) GetKey(alias string) string {
 
 func (container *Container) Flush() {
 	container.instances = sync.Map{}
-	container.singletons = make(map[string]contracts.MagicalFunc, 0)
-	container.binds = make(map[string]contracts.MagicalFunc, 0)
+	container.singletons = make(map[string]contracts.MagicalFunc)
+	container.binds = make(map[string]contracts.MagicalFunc)
 	container.aliases = sync.Map{}
 }
 
@@ -194,11 +194,17 @@ func (container *Container) DIByArguments(object any, arguments ArgumentsTypeMap
 	switch objectValue.Kind() {
 	case reflect.Ptr:
 		if objectValue.Elem().Kind() != reflect.Struct {
-			exceptions.Throw(errors.New("参数必须是结构体指针"))
+			exceptions.Throw(DIKindException{
+				Exception: StructPtrTypeError,
+				Object:    object,
+			})
 		}
 		objectValue = objectValue.Elem()
 	default:
-		exceptions.Throw(errors.New("参数必须是结构体指针"))
+		exceptions.Throw(DIKindException{
+			Exception: StructPtrTypeError,
+			Object:    object,
+		})
 	}
 
 	valueType := objectValue.Type()
@@ -238,7 +244,14 @@ func (container *Container) DIByArguments(object any, arguments ArgumentsTypeMap
 				}
 				fieldValue.Set(value)
 			} else {
-				exceptions.Throw(fmt.Errorf("无法注入 %s ，因为类型不一致，目标类型为 %s，而将注入的类型为 %s", field.Name, field.Type.String(), fieldType.String()))
+				exceptions.Throw(
+					DIFieldException{
+						Exception: exceptions.WithError(fmt.Errorf("it is not possible to inject %s because of a type inconsistency, where the target type is %s and the type that will be injected is %s", field.Name, field.Type.String(), fieldType.String())),
+						Object:    object,
+						Field:     field.Name,
+						Target:    fieldType,
+					},
+				)
 			}
 		}
 	}
