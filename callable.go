@@ -12,11 +12,12 @@ var (
 )
 
 type magicalFunc struct {
-	in        int
-	out       int
-	value     reflect.Value
-	arguments []reflect.Type
-	returns   []reflect.Type
+	in         int
+	out        int
+	value      reflect.Value
+	arguments  []reflect.Type
+	returns    []reflect.Type
+	isVariadic bool
 }
 
 func NewMagicalFunc(fn any) contracts.MagicalFunc {
@@ -48,11 +49,12 @@ func NewMagicalFunc(fn any) contracts.MagicalFunc {
 	}
 
 	return &magicalFunc{
-		in:        argumentsLen,
-		out:       returnsLen,
-		value:     argValue,
-		arguments: arguments,
-		returns:   returns,
+		isVariadic: argType.IsVariadic(),
+		in:         argumentsLen,
+		out:        returnsLen,
+		value:      argValue,
+		arguments:  arguments,
+		returns:    returns,
 	}
 }
 
@@ -74,6 +76,10 @@ func (fn *magicalFunc) NumOut() int {
 
 func (fn *magicalFunc) NumIn() int {
 	return fn.in
+}
+
+func (fn *magicalFunc) IsVariadic() bool {
+	return fn.isVariadic
 }
 
 func (fn *magicalFunc) Signature() string {

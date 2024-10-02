@@ -28,6 +28,39 @@ func TestArgumentsTypeMap(t *testing.T) {
 	assert.True(t, args.Pull("string") == nil)
 }
 
+func TestBasicCall(t *testing.T) {
+	args := container.NewArgumentsTypeMap([]any{
+		"啦啦啦",
+		"1",
+		DemoParam{Id: "111"},
+	})
+	str := args.Pull("string")
+	fmt.Println(str)
+	assert.True(t, str == "啦啦啦")
+	fmt.Println(args.Pull("string"))
+
+	container.New().Call(func(arg1, arg2 string) {
+		fmt.Println(arg1 == "参数 1", arg1, "\n", arg2 == "参数 2", arg2)
+	}, "参数 1", "参数 2")
+
+	assert.True(t, args.Pull("string") == nil)
+}
+
+func TestDefaultParamsCall(t *testing.T) {
+	reflect.ValueOf(func(args ...string) {
+		fmt.Println(args)
+	}).Call([]reflect.Value{
+		reflect.ValueOf("hello"),
+		reflect.ValueOf("default"),
+	})
+
+	container.New().Call(func(args ...string) {
+		assert.True(t, args[0] == "参数 1")
+		assert.True(t, args[1] == "参数 2")
+		fmt.Println(args)
+	}, "参数 1", "参数 2", []string{"数组参数"})
+}
+
 func TestBaseContainer(t *testing.T) {
 	app := container.New()
 

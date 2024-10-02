@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/goal-web/contracts"
 	"github.com/goal-web/supports/exceptions"
+	"github.com/goal-web/supports/logs"
 	"github.com/goal-web/supports/utils"
 	"reflect"
 	"sync"
@@ -36,6 +37,9 @@ func New() contracts.Container {
 		func(key string, _ reflect.Type, arguments ArgumentsTypeMap) any {
 			return arguments.Pull(key) // 外部参数里面类型完全相等的参数
 		},
+		func(key string, _ reflect.Type, arguments ArgumentsTypeMap) any {
+			return arguments.Pull(key) // 外部参数里面类型完全相等的参数
+		},
 		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) any {
 			return arguments.FindConvertibleArg(key, argType) // 外部参数可转换的参数
 		},
@@ -43,6 +47,11 @@ func New() contracts.Container {
 			return container.GetByArguments(key, arguments) // 从容器中获取参数
 		},
 		func(key string, argType reflect.Type, arguments ArgumentsTypeMap) any {
+			defer func() {
+				if err := recover(); err != nil {
+					logs.Default().WithField("err", err).Error("Unable to inject parameter " + key)
+				}
+			}()
 			// 尝试 new 一个然后通过容器注入
 			var (
 				tempInstance any
@@ -153,9 +162,16 @@ func (container *Container) StaticCall(magicalFn contracts.MagicalFunc, args ...
 func (container *Container) StaticCallByArguments(magicalFn contracts.MagicalFunc, arguments ArgumentsTypeMap) []any {
 	fnArgs := make([]reflect.Value, 0)
 
-	for _, arg := range magicalFn.Arguments() {
-		key := utils.GetTypeKey(arg)
-		fnArgs = append(fnArgs, reflect.ValueOf(container.findArg(key, arg, arguments)))
+	for i, arg := range magicalFn.Arguments() {
+		if magicalFn.IsVariadic() && i == len(magicalFn.Arguments())-1 { // 注入可变参数
+			key := utils.GetTypeKey(arg.Elem())
+			for _, value := range arguments[key] {
+				fnArgs = append(fnArgs, reflect.ValueOf(value))
+			}
+		} else {
+			key := utils.GetTypeKey(arg)
+			fnArgs = append(fnArgs, reflect.ValueOf(container.findArg(key, arg, arguments)))
+		}
 	}
 
 	results := make([]any, 0)
