@@ -16,6 +16,12 @@ type DIKindException struct {
 	Object any
 }
 
+type CanNotInjectException struct {
+	contracts.Exception
+
+	Arg string
+}
+
 type DIFieldException struct {
 	contracts.Exception
 

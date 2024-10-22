@@ -170,7 +170,15 @@ func (container *Container) StaticCallByArguments(magicalFn contracts.MagicalFun
 			}
 		} else {
 			key := utils.GetTypeKey(arg)
-			fnArgs = append(fnArgs, reflect.ValueOf(container.findArg(key, arg, arguments)))
+			argTmp, exists := container.findArg(key, arg, arguments)
+			if !exists {
+				panic(CanNotInjectException{
+					Exception: exceptions.New(fmt.Sprintf("unable to inject %s argument", key)),
+					Arg:       key,
+				})
+			}
+
+			fnArgs = append(fnArgs, reflect.ValueOf(argTmp))
 		}
 	}
 
@@ -190,10 +198,10 @@ func (container *Container) Call(fn any, args ...any) []any {
 	return container.StaticCall(NewMagicalFunc(fn), args...)
 }
 
-func (container *Container) findArg(key string, p reflect.Type, arguments ArgumentsTypeMap) (result any) {
+func (container *Container) findArg(key string, p reflect.Type, arguments ArgumentsTypeMap) (result any, exists bool) {
 	for _, provider := range container.argProviders {
 		if value := provider(key, p, arguments); value != nil {
-			return value
+			return value, true
 		}
 	}
 	return
@@ -246,8 +254,14 @@ func (container *Container) DIByArguments(object any, arguments ArgumentsTypeMap
 			if len(di) > 0 { // 如果指定某 di 值，优先取这个值
 				fieldInterface = container.Get(di[0])
 			}
+			var exists bool
 			if fieldInterface == nil {
-				fieldInterface = container.findArg(key, field.Type, arguments)
+				if fieldInterface, exists = container.findArg(key, field.Type, arguments); !exists {
+					panic(CanNotInjectException{
+						Exception: exceptions.New(fmt.Sprintf("unable to inject %s argument", key)),
+						Arg:       key,
+					})
+				}
 			}
 		}
 
